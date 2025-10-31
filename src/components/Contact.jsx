@@ -1,7 +1,9 @@
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-function saveLead(lead) {
+const API_BASE = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
+
+function saveLeadLocal(lead) {
   try {
     const raw = localStorage.getItem('leads');
     const arr = raw ? JSON.parse(raw) : [];
@@ -13,18 +15,51 @@ function saveLead(lead) {
   }
 }
 
+async function createLeadRemote(lead) {
+  if (!API_BASE) throw new Error('No backend configured');
+  const res = await fetch(`${API_BASE}/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(lead),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Request failed');
+  }
+  return res.json();
+}
+
+async function fetchRecentLeads() {
+  if (!API_BASE) return null;
+  const res = await fetch(`${API_BASE}/leads?limit=3`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 export default function Contact() {
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [status, setStatus] = useState({ type: 'idle', message: '' });
   const [recent, setRecent] = useState([]);
 
-  useEffect(() => {
+  const loadRecent = async () => {
+    // Try backend first
+    const remote = await fetchRecentLeads();
+    if (remote && Array.isArray(remote)) {
+      setRecent(remote);
+      return;
+    }
+    // Fallback to local
     const raw = localStorage.getItem('leads');
     const arr = raw ? JSON.parse(raw) : [];
     setRecent(arr.slice(-3).reverse());
-  }, [status]);
+  };
 
-  const onSubmit = (e) => {
+  useEffect(() => {
+    loadRecent();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const onSubmit = async (e) => {
     e.preventDefault();
     setStatus({ type: 'idle', message: '' });
 
@@ -43,12 +78,25 @@ export default function Contact() {
       return;
     }
 
-    const ok = saveLead({ name, email, message });
-    if (ok) {
-      setStatus({ type: 'success', message: 'Thanks! Your message has been received.' });
-      setForm({ name: '', email: '', message: '' });
-    } else {
-      setStatus({ type: 'error', message: 'Could not save your message. Please try again.' });
+    // Try remote first, fallback to local
+    try {
+      if (API_BASE) {
+        await createLeadRemote({ name, email, message, source: 'website' });
+        setStatus({ type: 'success', message: 'Thanks! Your message has been received.' });
+        setForm({ name: '', email: '', message: '' });
+        loadRecent();
+        return;
+      }
+      throw new Error('No backend configured');
+    } catch (err) {
+      const ok = saveLeadLocal({ name, email, message });
+      if (ok) {
+        setStatus({ type: 'success', message: 'Saved locally. Backend not reachable.' });
+        setForm({ name: '', email: '', message: '' });
+        loadRecent();
+      } else {
+        setStatus({ type: 'error', message: 'Could not save your message. Please try again.' });
+      }
     }
   };
 
@@ -123,10 +171,10 @@ export default function Contact() {
 
           {recent.length > 0 && (
             <div className="mt-8">
-              <h3 className="text-lg font-semibold text-stone-900">Recent messages (local only)</h3>
+              <h3 className="text-lg font-semibold text-stone-900">Recent messages</h3>
               <ul className="mt-3 space-y-3">
                 {recent.map((r, idx) => (
-                  <li key={idx} className="rounded-xl bg-stone-100 p-4">
+                  <li key={r.id || idx} className="rounded-xl bg-stone-100 p-4">
                     <div className="text-sm font-medium text-stone-900">{r.name}</div>
                     <div className="text-xs text-stone-600">{r.email}</div>
                     <div className="text-sm text-stone-700 mt-1">{r.message}</div>
