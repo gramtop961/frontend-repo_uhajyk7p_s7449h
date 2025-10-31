@@ -1,0 +1,5 @@
+
+> millet-atelier-frontend@1.0.0 dev
+> vite --port 3000
+
+sh: 1: vite: not found
