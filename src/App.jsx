@@ -1,42 +1,49 @@
-import React from 'react';
-import Navigation from './components/Navigation.jsx';
-import HeroShowcase from './components/HeroShowcase.jsx';
-import GalleryShowcase from './components/GalleryShowcase.jsx';
-import ContactSection from './components/ContactSection.jsx';
+import { useEffect, useState } from 'react';
+import Navigation from './components/Navigation';
+import Hero from './components/Hero';
+import About from './components/About';
+import Gallery from './components/Gallery';
+import Contact from './components/Contact';
+
+const routes = ['home', 'about', 'gallery', 'contact'];
 
 export default function App() {
-  React.useEffect(() => {
-    // Smooth scroll behavior for anchor links
-    const onClick = (e) => {
-      const target = e.target.closest('a[href^="#"]');
-      if (!target) return;
-      const id = target.getAttribute('href');
-      if (id && id.length > 1) {
-        const el = document.querySelector(id);
-        if (el) {
-          e.preventDefault();
-          window.scrollTo({ top: el.offsetTop - 80, behavior: 'smooth' });
-        }
-      }
+  const [route, setRoute] = useState('home');
+
+  useEffect(() => {
+    const initial = window.location.hash.replace('#', '');
+    if (routes.includes(initial)) {
+      setRoute(initial);
+    }
+    const onHashChange = () => {
+      const r = window.location.hash.replace('#', '');
+      if (routes.includes(r)) setRoute(r);
     };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
+  const navigate = (to) => {
+    if (!routes.includes(to)) return;
+    if (window.location.hash.replace('#', '') !== to) {
+      window.location.hash = to;
+    } else {
+      setRoute(to);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[rgb(243,239,232)] text-emerald-900">
-      <Navigation />
-      <main>
-        <HeroShowcase />
-        <GalleryShowcase />
-        <ContactSection />
+    <div className="min-h-screen bg-stone-50 text-stone-800 selection:bg-amber-200 selection:text-stone-900">
+      <Navigation active={route} onNavigate={navigate} />
+      <main className="pt-20">
+        {route === 'home' && <Hero onNavigate={navigate} />}
+        {route === 'about' && <About />}
+        {route === 'gallery' && <Gallery />}
+        {route === 'contact' && <Contact />}
       </main>
-      <footer className="border-t border-emerald-900/10 py-10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
-            <p className="text-xs text-emerald-900/60">© {new Date().getFullYear()} Millet Atelier — Crafted with warmth and modernity.</p>
-            <div className="text-xs text-emerald-900/60">Sustainably made</div>
-          </div>
+      <footer className="mt-16 border-t border-stone-200">
+        <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-stone-500">
+          © {new Date().getFullYear()} Golden Grain Millet Co. Crafted with care.
         </div>
       </footer>
     </div>
